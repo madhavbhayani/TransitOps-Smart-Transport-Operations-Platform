@@ -20,4 +20,6 @@ router.post('/:id/dispatch', dispatchOnly, tripController.dispatchTrip);
 router.post('/:id/complete', dispatchOnly, tripController.completeTrip);
 router.post('/:id/cancel', dispatchOnly, tripController.cancelTrip);
 router.post('/:id/details', viewRoles, tripController.getTripDetails);
+
+router.get('/export', viewRoles, tripController.exportData);
 module.exports = router;

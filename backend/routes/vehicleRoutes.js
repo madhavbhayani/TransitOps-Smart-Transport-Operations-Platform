@@ -38,4 +38,5 @@ router.get('/:id/utilization', fleetView, vehicleController.getVehicleUtilizatio
 router.get('/:id/status-history', fleetView, vehicleController.getVehicleStatusHistory);
 router.get('/:id/lifecycle', fleetView, vehicleController.getVehicleLifecycle);
 
+router.get('/export', maintenanceView, vehicleController.exportData);
 module.exports = router;
