@@ -1,5 +1,4 @@
 const { pool } = require('../config/db');
-
 async function registerVehicle(data, userId) {
     const client = await pool.connect();
     try {
@@ -11,19 +10,19 @@ async function registerVehicle(data, userId) {
             RETURNING *
         `, [data.registrationNumber, data.name, data.type, data.maxLoadCapacity, data.odometer, data.acquisitionCost]);
         const vehicle = vRes.rows[0];
-        
+
         await client.query('INSERT INTO vehicles.vehicle_utilization (vehicle_id) VALUES ($1)', [vehicle.id]);
-        
+
         await client.query(`
             INSERT INTO vehicles.vehicle_lifecycle (vehicle_id, event_type, description, recorded_by)
             VALUES ($1, 'REGISTERED', 'Vehicle added to fleet', $2)
         `, [vehicle.id, userId]);
-        
+
         await client.query(`
             INSERT INTO vehicles.vehicle_status_history (vehicle_id, previous_status, new_status, reason, changed_by)
             VALUES ($1, NULL, 'AVAILABLE', 'Vehicle registered', $2)
         `, [vehicle.id, userId]);
-        
+
         await client.query('COMMIT');
         return vehicle;
     } catch (err) {
@@ -33,7 +32,6 @@ async function registerVehicle(data, userId) {
         client.release();
     }
 }
-
 async function getVehicles({ status, type, search }) {
     let query = `SELECT * FROM vehicles.vehicles WHERE 1=1`;
     const params = [];
@@ -47,21 +45,19 @@ async function getVehicles({ status, type, search }) {
     const res = await pool.query(query, params);
     return res.rows;
 }
-
 async function getVehicleById(id) {
     const vRes = await pool.query('SELECT * FROM vehicles.vehicles WHERE id = $1', [id]);
     if (!vRes.rows.length) return null;
     const vehicle = vRes.rows[0];
-    
+
     const uRes = await pool.query('SELECT * FROM vehicles.vehicle_utilization WHERE vehicle_id = $1', [id]);
     const utilization = uRes.rows[0] || null;
-    
+
     const mRes = await pool.query("SELECT * FROM vehicles.vehicle_maintenance WHERE vehicle_id = $1 AND status = 'ACTIVE'", [id]);
     const activeMaintenance = mRes.rows[0] || null;
-    
+
     return { vehicle, utilization, activeMaintenance };
 }
-
 async function updateVehicle(id, data) {
     const { name, type, maxLoadCapacity, odometer, acquisitionCost } = data;
     const current = await pool.query('SELECT odometer FROM vehicles.vehicles WHERE id = $1', [id]);
@@ -83,7 +79,6 @@ async function updateVehicle(id, data) {
     const res = await pool.query(query, params);
     return res.rows[0];
 }
-
 async function markAvailable(id, userId) {
     const client = await pool.connect();
     try {
@@ -109,7 +104,6 @@ async function markAvailable(id, userId) {
         client.release();
     }
 }
-
 async function retireVehicle(id, reason, userId) {
     const client = await pool.connect();
     try {
@@ -133,7 +127,6 @@ async function retireVehicle(id, reason, userId) {
         client.release();
     }
 }
-
 async function startMaintenance(vehicleId, data, userId) {
     const client = await pool.connect();
     try {
@@ -146,16 +139,16 @@ async function startMaintenance(vehicleId, data, userId) {
         if (data.cost !== undefined && data.cost < 0) throw new Error('Cost cannot be negative');
         const mRes = await client.query("SELECT id FROM vehicles.vehicle_maintenance WHERE vehicle_id = $1 AND status = 'ACTIVE'", [vehicleId]);
         if (mRes.rows.length > 0) throw new Error('Vehicle already has ACTIVE maintenance');
-        
+
         const maintRes = await client.query(`
             INSERT INTO vehicles.vehicle_maintenance (vehicle_id, maintenance_type, description, start_date, cost, created_by)
             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
         `, [vehicleId, data.maintenanceType, data.description, data.startDate, data.cost || 0, userId]);
-        
+
         await client.query("UPDATE vehicles.vehicles SET status = 'IN_SHOP', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [vehicleId]);
         await client.query("INSERT INTO vehicles.vehicle_status_history (vehicle_id, previous_status, new_status, reason, changed_by) VALUES ($1, $2, 'IN_SHOP', 'Maintenance started', $3)", [vehicleId, vehicle.status, userId]);
         await client.query("INSERT INTO vehicles.vehicle_lifecycle (vehicle_id, event_type, description, recorded_by) VALUES ($1, 'MAINTENANCE_STARTED', $2, $3)", [vehicleId, `${data.maintenanceType} started`, userId]);
-        
+
         await client.query('COMMIT');
         return maintRes.rows[0];
     } catch (err) {
@@ -165,7 +158,6 @@ async function startMaintenance(vehicleId, data, userId) {
         client.release();
     }
 }
-
 async function completeMaintenance(vehicleId, maintenanceId, data, userId) {
     const client = await pool.connect();
     try {
@@ -180,14 +172,14 @@ async function completeMaintenance(vehicleId, maintenanceId, data, userId) {
         if (data.endDate && new Date(data.endDate) < new Date(maintenance.start_date)) throw new Error('endDate cannot be before startDate');
         const cost = data.cost !== undefined ? data.cost : maintenance.cost;
         if (cost < 0) throw new Error('Cost cannot be negative');
-        
+
         const updatedMaint = await client.query(`UPDATE vehicles.vehicle_maintenance SET status = 'COMPLETED', end_date = $1, cost = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *`, [data.endDate || null, cost, maintenanceId]);
         if (vehicle.status !== 'RETIRED') {
             await client.query("UPDATE vehicles.vehicles SET status = 'AVAILABLE', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [vehicleId]);
             await client.query("INSERT INTO vehicles.vehicle_status_history (vehicle_id, previous_status, new_status, reason, changed_by) VALUES ($1, $2, 'AVAILABLE', 'Maintenance completed', $3)", [vehicleId, vehicle.status, userId]);
         }
         await client.query("INSERT INTO vehicles.vehicle_lifecycle (vehicle_id, event_type, description, recorded_by) VALUES ($1, 'MAINTENANCE_COMPLETED', $2, $3)", [vehicleId, `${maintenance.maintenance_type} completed`, userId]);
-        
+
         await client.query('COMMIT');
         return updatedMaint.rows[0];
     } catch (err) {
@@ -197,7 +189,6 @@ async function completeMaintenance(vehicleId, maintenanceId, data, userId) {
         client.release();
     }
 }
-
 async function cancelMaintenance(vehicleId, maintenanceId, data, userId) {
     const client = await pool.connect();
     try {
@@ -209,7 +200,7 @@ async function cancelMaintenance(vehicleId, maintenanceId, data, userId) {
         if (!mRes.rows.length) throw new Error('MAINTENANCE_NOT_FOUND');
         const maintenance = mRes.rows[0];
         if (maintenance.status !== 'ACTIVE') throw new Error('Maintenance is not ACTIVE');
-        
+
         await client.query("UPDATE vehicles.vehicle_maintenance SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [maintenanceId]);
         const activeMaintRes = await client.query("SELECT id FROM vehicles.vehicle_maintenance WHERE vehicle_id = $1 AND status = 'ACTIVE' AND id != $2", [vehicleId, maintenanceId]);
         if (activeMaintRes.rows.length === 0 && vehicle.status !== 'RETIRED' && vehicle.status !== 'ON_TRIP') {
@@ -226,26 +217,39 @@ async function cancelMaintenance(vehicleId, maintenanceId, data, userId) {
         client.release();
     }
 }
-
 async function getVehicleMaintenanceList(vehicleId, { status, startDate, endDate }) {
-    let query = `SELECT * FROM vehicles.vehicle_maintenance WHERE vehicle_id = $1`;
+    let query = `
+        SELECT m.*, v.name as vehicle_name, v.registration_number as vehicle_reg 
+        FROM vehicles.vehicle_maintenance m 
+        JOIN vehicles.vehicles v ON m.vehicle_id = v.id 
+        WHERE m.vehicle_id = $1
+    `;
     const params = [vehicleId];
-    if (status) { params.push(status); query += ` AND status = $${params.length}`; }
-    if (startDate) { params.push(startDate); query += ` AND start_date >= $${params.length}`; }
-    if (endDate) { params.push(endDate); query += ` AND start_date <= $${params.length}`; }
-    query += ` ORDER BY id DESC`;
+    if (status) { params.push(status); query += ` AND m.status = $${params.length}`; }
+    if (startDate) { params.push(startDate); query += ` AND m.start_date >= $${params.length}`; }
+    if (endDate) { params.push(endDate); query += ` AND m.start_date <= $${params.length}`; }
+    query += ` ORDER BY m.id DESC`;
     const res = await pool.query(query, params);
     return res.rows;
 }
 
-async function getAllMaintenance({ vehicleId, status, startDate, endDate }) {
-    let query = `SELECT * FROM vehicles.vehicle_maintenance WHERE 1=1`;
+async function getAllMaintenance({ vehicleId, status, startDate, endDate, search }) {
+    let query = `
+        SELECT m.*, v.name as vehicle_name, v.registration_number as vehicle_reg
+        FROM vehicles.vehicle_maintenance m
+        JOIN vehicles.vehicles v ON m.vehicle_id = v.id
+        WHERE 1=1
+    `;
     const params = [];
-    if (vehicleId) { params.push(vehicleId); query += ` AND vehicle_id = $${params.length}`; }
-    if (status) { params.push(status); query += ` AND status = $${params.length}`; }
-    if (startDate) { params.push(startDate); query += ` AND start_date >= $${params.length}`; }
-    if (endDate) { params.push(endDate); query += ` AND start_date <= $${params.length}`; }
-    query += ` ORDER BY id DESC`;
+    if (vehicleId) { params.push(vehicleId); query += ` AND m.vehicle_id = $${params.length}`; }
+    if (status) { params.push(status); query += ` AND m.status = $${params.length}`; }
+    if (startDate) { params.push(startDate); query += ` AND m.start_date >= $${params.length}`; }
+    if (endDate) { params.push(endDate); query += ` AND m.start_date <= $${params.length}`; }
+    if (search) {
+        params.push(`%${search}%`);
+        query += ` AND (v.registration_number ILIKE $${params.length} OR v.name ILIKE $${params.length} OR m.maintenance_type ILIKE $${params.length})`;
+    }
+    query += ` ORDER BY m.id DESC`;
     const res = await pool.query(query, params);
     return res.rows;
 }

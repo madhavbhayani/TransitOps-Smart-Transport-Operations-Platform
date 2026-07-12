@@ -37,6 +37,6 @@ router.get('/search', viewRoles, financeController.searchFinancials);
 router.post('/filter', viewRoles, financeController.filterFinancials);
 
 // Export
-router.get('/export/csv', viewRoles, financeController.exportCSV);
+router.get('/export/csv', viewRoles, financeController.exportData);
 
 module.exports = router;
