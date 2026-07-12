@@ -2,7 +2,12 @@ const dashboardService = require('../services/dashboardService');
 
 const getDashboardStats = async (req, res) => {
     try {
-        const stats = await dashboardService.getDashboardStats();
+        const filters = {
+            vehicleType: req.query.vehicleType,
+            status: req.query.status,
+            region: req.query.region
+        };
+        const stats = await dashboardService.getDashboardStats(filters);
         res.json({
             success: true,
             data: stats
