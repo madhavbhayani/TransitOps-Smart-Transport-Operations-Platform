@@ -30,6 +30,6 @@ router.get('/trips/:tripId', tripAnalyticsViewRoles, analyticsController.getSpec
 // CSV Export
 // Allowed roles: Analyst, Fleet Manager, Dispatcher (all analytics view roles combined safely)
 const exportViewRoles = requirePermission('analytics', 'VIEW');
-router.get('/export/csv', exportViewRoles, analyticsController.exportData);
+router.get('/export', exportViewRoles, analyticsController.exportData);
 
 module.exports = router;
