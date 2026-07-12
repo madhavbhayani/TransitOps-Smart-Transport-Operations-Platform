@@ -140,8 +140,56 @@ async function getVehicleUtilization(req, res) {
     }
 }
 
+
+const { generateTablePDF } = require('../utils/pdfGenerator');
+const { parse } = require('json2csv');
+
+async function exportData(req, res) {
+    try {
+        const { vehicleId, status, startDate, endDate, format } = req.query;
+        const filters = { vehicleId, status, startDate, endDate };
+
+        const maintenance = await vehicleService.getAllMaintenance(filters);
+        if (!maintenance || maintenance.length === 0) {
+            return res.status(404).json({ success: false, message: 'No maintenance records available for export' });
+        }
+
+        const title = "Maintenance Logs Report";
+        const fields = ['id', 'vehicle_reg', 'vehicle_name', 'maintenance_type', 'start_date', 'end_date', 'cost', 'status'];
+        const headers = ['Maint ID', 'Reg No', 'Vehicle Name', 'Type', 'Start Date', 'End Date', 'Cost', 'Status'];
+        const fileNameBase = `export_maintenance_${new Date().getTime()}`;
+
+        if (format === 'pdf') {
+            const rows = maintenance.map(item => fields.map(field => {
+                let val = item[field];
+                if ((field === 'start_date' || field === 'end_date') && val) {
+                    val = new Date(val).toISOString().split('T')[0];
+                }
+                return val !== null && val !== undefined ? val.toString() : '';
+            }));
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=${fileNameBase}.pdf`);
+            generateTablePDF(res, title, headers, rows);
+        } else {
+            const csvData = maintenance.map(m => {
+                const row = { ...m };
+                if (row.start_date) row.start_date = new Date(row.start_date).toISOString().split('T')[0];
+                if (row.end_date) row.end_date = new Date(row.end_date).toISOString().split('T')[0];
+                return row;
+            });
+            const csv = parse(csvData, { fields });
+            res.header('Content-Type', 'text/csv');
+            res.attachment(`${fileNameBase}.csv`);
+            return res.send(csv);
+        }
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+}
+
 module.exports = {
     registerVehicle, getVehicles, getVehicleById, updateVehicle, markAvailable, retireVehicle,
     startMaintenance, completeMaintenance, cancelMaintenance, getVehicleMaintenanceList,
-    getAllMaintenance, getVehicleStatusHistory, getVehicleLifecycle, getFleetUtilizationSummary, getVehicleUtilization
+    getAllMaintenance, getVehicleStatusHistory, getVehicleLifecycle, getFleetUtilizationSummary, getVehicleUtilization,
+    exportData
 };

@@ -1,5 +1,4 @@
 const { pool } = require('../config/db');
-
 async function createTrip(data, userId) {
     const { source, destination, vehicleId, driverId, cargoWeight, plannedDistance, revenue } = data;
     
@@ -7,7 +6,6 @@ async function createTrip(data, userId) {
     if (source === destination) throw new Error('Source and destination must not be identical');
     if (cargoWeight <= 0) throw new Error('Cargo weight must be positive');
     if (plannedDistance <= 0) throw new Error('Planned distance must be positive');
-
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -41,7 +39,50 @@ async function createTrip(data, userId) {
         client.release();
     }
 }
-
+async function updateTrip(id, data, userId) {
+    const { source, destination, vehicleId, driverId, cargoWeight, plannedDistance, revenue } = data;
+    
+    if (!source || !destination) throw new Error('Source and destination are required');
+    if (source === destination) throw new Error('Source and destination must not be identical');
+    if (cargoWeight <= 0) throw new Error('Cargo weight must be positive');
+    if (plannedDistance <= 0) throw new Error('Planned distance must be positive');
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const existingTripRes = await client.query('SELECT status FROM trip_mgmt.trips WHERE id = $1 FOR UPDATE', [id]);
+        if (!existingTripRes.rows.length) throw new Error('Trip not found');
+        if (existingTripRes.rows[0].status !== 'DRAFT') throw new Error('Only DRAFT trips can be edited');
+        const vRes = await client.query('SELECT max_load_capacity FROM vehicles.vehicles WHERE id = $1', [vehicleId]);
+        if (!vRes.rows.length) throw new Error('Vehicle not found');
+        if (cargoWeight > vRes.rows[0].max_load_capacity) throw new Error('Cargo weight exceeds vehicle max capacity');
+        
+        const dRes = await client.query('SELECT id FROM drivers.drivers WHERE id = $1', [driverId]);
+        if (!dRes.rows.length) throw new Error('Driver not found');
+        
+        const tripRes = await client.query(`
+            UPDATE trip_mgmt.trips 
+            SET source = $1, destination = $2, vehicle_id = $3, driver_id = $4, cargo_weight = $5, planned_distance = $6, revenue = $7
+            WHERE id = $8
+            RETURNING *
+        `, [source, destination, vehicleId, driverId, cargoWeight, plannedDistance, revenue || 0, id]);
+        
+        const trip = tripRes.rows[0];
+        
+        await client.query(`
+            INSERT INTO trip_mgmt.trip_status_history (trip_id, previous_status, new_status, reason, changed_by)
+            VALUES ($1, 'DRAFT', 'DRAFT', 'Trip details updated', $2)
+        `, [trip.id, userId]);
+        
+        await client.query('COMMIT');
+        return trip;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
 async function selectVehicles({ cargoWeight }) {
     const query = `
         SELECT * FROM vehicles.vehicles
@@ -51,7 +92,6 @@ async function selectVehicles({ cargoWeight }) {
     const res = await pool.query(query, [cargoWeight || 0]);
     return res.rows;
 }
-
 async function selectDrivers() {
     const query = `
         SELECT * FROM drivers.drivers
@@ -61,7 +101,6 @@ async function selectDrivers() {
     const res = await pool.query(query);
     return res.rows;
 }
-
 async function dispatchTrip(id, userId) {
     try {
         await pool.query('SELECT trip_mgmt.dispatch_trip($1, $2)', [id, userId]);
@@ -70,7 +109,6 @@ async function dispatchTrip(id, userId) {
         throw new Error(err.message || 'Failed to dispatch trip');
     }
 }
-
 async function getActiveTrips() {
     const query = `
         SELECT t.*, 
@@ -85,7 +123,6 @@ async function getActiveTrips() {
     const res = await pool.query(query);
     return res.rows;
 }
-
 async function completeTrip(id, { finalOdometer, fuelConsumed }, userId) {
     try {
         await pool.query('SELECT trip_mgmt.complete_trip($1, $2, $3, $4)', [id, finalOdometer, fuelConsumed || 0, userId]);
@@ -94,7 +131,6 @@ async function completeTrip(id, { finalOdometer, fuelConsumed }, userId) {
         throw new Error(err.message || 'Failed to complete trip');
     }
 }
-
 async function cancelTrip(id, { reason }, userId) {
     try {
         await pool.query('SELECT trip_mgmt.cancel_trip($1, $2, $3)', [id, reason || 'Cancelled by dispatcher', userId]);
@@ -103,7 +139,6 @@ async function cancelTrip(id, { reason }, userId) {
         throw new Error(err.message || 'Failed to cancel trip');
     }
 }
-
 async function searchTrips({ search }) {
     const query = `
         SELECT t.*, v.registration_number, v.name AS vehicle_name, d.name AS driver_name, d.license_number
@@ -121,7 +156,6 @@ async function searchTrips({ search }) {
     const res = await pool.query(query, [`%${search}%`]);
     return res.rows;
 }
-
 async function filterTrips(filters) {
     let query = `
         SELECT t.*, v.registration_number, v.name AS vehicle_name, d.name AS driver_name, d.license_number
@@ -145,7 +179,6 @@ async function filterTrips(filters) {
     const res = await pool.query(query, params);
     return res.rows;
 }
-
 async function getTripDetails(id) {
     const tripQuery = `
         SELECT t.*, 
@@ -197,9 +230,9 @@ async function getTripDetails(id) {
         history: historyRes.rows
     };
 }
-
 module.exports = {
     createTrip,
+    updateTrip,
     selectVehicles,
     selectDrivers,
     dispatchTrip,

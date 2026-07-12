@@ -1,5 +1,4 @@
 const financeService = require('../services/financeService');
-
 async function recordFuelLog(req, res) {
     try {
         const fuelLog = await financeService.recordFuelLog(req.body, req.user.userId);
@@ -8,7 +7,6 @@ async function recordFuelLog(req, res) {
         res.status(400).json({ success: false, message: err.message });
     }
 }
-
 async function getFuelLogs(req, res) {
     try {
         const fuelLogs = await financeService.getFuelLogs(req.query);
@@ -17,7 +15,6 @@ async function getFuelLogs(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function getFuelLogDetails(req, res) {
     try {
         const fuelLog = await financeService.getFuelLogDetails(req.params.id);
@@ -27,7 +24,6 @@ async function getFuelLogDetails(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function voidFuelLog(req, res) {
     try {
         const fuelLog = await financeService.voidFuelLog(req.params.id, req.body.reason, req.user.userId);
@@ -36,7 +32,6 @@ async function voidFuelLog(req, res) {
         res.status(400).json({ success: false, message: err.message });
     }
 }
-
 async function recordExpense(req, res) {
     try {
         const expense = await financeService.recordExpense(req.body, req.user.userId);
@@ -45,7 +40,6 @@ async function recordExpense(req, res) {
         res.status(400).json({ success: false, message: err.message });
     }
 }
-
 async function getExpenses(req, res) {
     try {
         const expenses = await financeService.getExpenses(req.query);
@@ -54,7 +48,6 @@ async function getExpenses(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function getExpenseDetails(req, res) {
     try {
         const details = await financeService.getExpenseDetails(req.params.id);
@@ -64,7 +57,6 @@ async function getExpenseDetails(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function voidExpense(req, res) {
     try {
         const expense = await financeService.voidExpense(req.params.id, req.body.reason, req.user.userId);
@@ -73,7 +65,6 @@ async function voidExpense(req, res) {
         res.status(400).json({ success: false, message: err.message });
     }
 }
-
 async function getVehicleOperationalCost(req, res) {
     try {
         const data = await financeService.getVehicleOperationalCost(req.params.vehicleId);
@@ -82,7 +73,6 @@ async function getVehicleOperationalCost(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function getVehicleFuelEfficiency(req, res) {
     try {
         const data = await financeService.getVehicleFuelEfficiency(req.params.vehicleId);
@@ -91,7 +81,6 @@ async function getVehicleFuelEfficiency(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function getVehicleROI(req, res) {
     try {
         const data = await financeService.getVehicleROI(req.params.vehicleId);
@@ -100,7 +89,6 @@ async function getVehicleROI(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function getVehicleSummary(req, res) {
     try {
         const data = await financeService.getVehicleFinancialSummary(req.params.vehicleId);
@@ -109,7 +97,6 @@ async function getVehicleSummary(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function getDashboardSummary(req, res) {
     try {
         const data = await financeService.getDashboardSummary();
@@ -118,7 +105,6 @@ async function getDashboardSummary(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function searchFinancials(req, res) {
     try {
         const data = await financeService.searchFinancials(req.query);
@@ -127,7 +113,6 @@ async function searchFinancials(req, res) {
         res.status(500).json({ success: false, message: err.message });
     }
 }
-
 async function filterFinancials(req, res) {
     try {
         const [fuelLogs, expenses] = await Promise.all([
@@ -140,37 +125,95 @@ async function filterFinancials(req, res) {
     }
 }
 
-async function exportCSV(req, res) {
+const { generateTablePDF } = require('../utils/pdfGenerator');
+const { parse } = require('json2csv');
+
+async function exportData(req, res) {
     try {
-        const { type, vehicleId, startDate, endDate } = req.query;
-        let csvContent = "";
+        const { type, vehicleId, startDate, endDate, format } = req.query;
         const filters = { vehicleId, startDate, endDate };
 
+        let headers = [];
+        let rows = [];
+        let csvContent = "";
+        let title = "";
+
         if (type === 'fuel') {
+            title = "Fuel Logs Report";
             const data = await financeService.getFuelLogs(filters);
-            csvContent = "ID,Vehicle,Trip ID,Liters,Cost,Date,Odometer,Recorded By,Voided\n";
+            headers = ["ID", "Vehicle", "Trip ID", "Liters", "Cost", "Date", "Odometer", "Recorded By", "Voided"];
+            
             data.forEach(row => {
-                csvContent += `${row.id},${row.registration_number},${row.trip_id || ''},${row.liters},${row.cost},${new Date(row.fuel_date).toISOString().split('T')[0]},${row.odometer || ''},${row.recorded_by_name},${row.is_voided}\n`;
+                const dateStr = new Date(row.fuel_date).toISOString().split('T')[0];
+                rows.push([
+                    row.id.toString(), 
+                    row.registration_number, 
+                    (row.trip_id || '').toString(), 
+                    row.liters.toString(), 
+                    row.cost.toString(), 
+                    dateStr, 
+                    (row.odometer || '').toString(), 
+                    row.recorded_by_name, 
+                    row.is_voided ? 'Yes' : 'No'
+                ]);
             });
         } else if (type === 'expenses') {
+            title = "Expenses Report";
             const data = await financeService.getExpenses(filters);
-            csvContent = "ID,Vehicle,Trip ID,Type,Amount,Date,Description,Status,Recorded By\n";
+            headers = ["ID", "Vehicle", "Trip ID", "Type", "Amount", "Date", "Description", "Status", "Recorded By"];
+            
             data.forEach(row => {
+                const dateStr = new Date(row.expense_date).toISOString().split('T')[0];
                 const desc = (row.description || '').replace(/,/g, ' ');
-                csvContent += `${row.id},${row.registration_number},${row.trip_id || ''},${row.expense_type},${row.amount},${new Date(row.expense_date).toISOString().split('T')[0]},${desc},${row.status},${row.recorded_by_name}\n`;
+                rows.push([
+                    row.id.toString(), 
+                    row.registration_number, 
+                    (row.trip_id || '').toString(), 
+                    row.expense_type, 
+                    row.amount.toString(), 
+                    dateStr, 
+                    desc, 
+                    row.status, 
+                    row.recorded_by_name
+                ]);
             });
         } else if (type === 'vehicle-summary') {
             if (!vehicleId) throw new Error('vehicleId is required for vehicle-summary export');
+            title = "Vehicle Financial Summary";
             const data = await financeService.getVehicleFinancialSummary(vehicleId);
-            csvContent = "Vehicle ID,Registration,Fuel Cost,Maintenance Cost,Operational Cost,Other Expenses,Total Tracked Expenses,Total Liters,Efficiency,Revenue,ROI Ratio\n";
-            csvContent += `${data.vehicle.id},${data.vehicle.registration_number},${data.fuelCost},${data.maintenanceCost},${data.operationalCost},${data.otherExpenses},${data.totalTrackedExpenses},${data.totalFuelLiters},${data.fuelEfficiency || ''},${data.completedTripRevenue},${data.roiRatio || ''}\n`;
+            headers = ["Vehicle ID", "Registration", "Fuel Cost", "Maintenance Cost", "Operational Cost", "Other Expenses", "Total Tracked Expenses", "Total Liters", "Efficiency", "Revenue", "ROI Ratio"];
+            
+            rows.push([
+                data.vehicle.id.toString(),
+                data.vehicle.registration_number,
+                data.fuelCost.toString(),
+                data.maintenanceCost.toString(),
+                data.operationalCost.toString(),
+                data.otherExpenses.toString(),
+                data.totalTrackedExpenses.toString(),
+                data.totalFuelLiters.toString(),
+                (data.fuelEfficiency || '').toString(),
+                data.completedTripRevenue.toString(),
+                (data.roiRatio || '').toString()
+            ]);
         } else {
             throw new Error('Invalid export type. Use fuel, expenses, or vehicle-summary');
         }
 
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename=export_${type}_${new Date().getTime()}.csv`);
-        res.send(csvContent);
+        if (format === 'pdf') {
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=export_${type}_${new Date().getTime()}.pdf`);
+            generateTablePDF(res, title, headers, rows);
+        } else {
+            // Default to CSV
+            csvContent = headers.join(',') + '\n';
+            rows.forEach(r => {
+                csvContent += r.join(',') + '\n';
+            });
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename=export_${type}_${new Date().getTime()}.csv`);
+            res.send(csvContent);
+        }
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
@@ -192,5 +235,5 @@ module.exports = {
     getDashboardSummary,
     searchFinancials,
     filterFinancials,
-    exportCSV
+    exportData
 };
