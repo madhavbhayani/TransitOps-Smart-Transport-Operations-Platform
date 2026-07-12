@@ -1,26 +1,27 @@
 const express = require('express');
-const { authenticate, requireRole } = require('../middleware/authMiddleware');
+const { authenticate, requirePermission } = require('../middleware/authMiddleware');
 const financeController = require('../controllers/financeController');
 
 const router = express.Router();
 
 router.use(authenticate);
 
-// Allow FINANCIAL_ANALYST full access, others restricted where appropriate.
-const analystOnly = requireRole(['FINANCIAL_ANALYST']);
-const viewRoles = requireRole(['FINANCIAL_ANALYST', 'FLEET_MANAGER', 'DISPATCHER']); // Adjust view permissions
+// Dynamic permissions
+const analystOnly = requirePermission('expenses', 'FULL_CONTROL'); // Using FULL_CONTROL for things only analysts could do before
+const writeRoles = requirePermission('expenses', 'FULL_CONTROL');
+const viewRoles = requirePermission('expenses', 'VIEW');
 
 // Fuel Logs
-router.post('/fuel-logs', analystOnly, financeController.recordFuelLog);
+router.post('/fuel-logs', writeRoles, financeController.recordFuelLog);
 router.get('/fuel-logs', viewRoles, financeController.getFuelLogs);
 router.get('/fuel-logs/:id', viewRoles, financeController.getFuelLogDetails);
-router.post('/fuel-logs/:id/void', analystOnly, financeController.voidFuelLog);
+router.post('/fuel-logs/:id/void', analystOnly, financeController.voidFuelLog); // Voiding remains analyst only
 
 // Expenses
-router.post('/expenses', analystOnly, financeController.recordExpense);
+router.post('/expenses', writeRoles, financeController.recordExpense);
 router.get('/expenses', viewRoles, financeController.getExpenses);
 router.get('/expenses/:id', viewRoles, financeController.getExpenseDetails);
-router.post('/expenses/:id/void', analystOnly, financeController.voidExpense);
+router.post('/expenses/:id/void', analystOnly, financeController.voidExpense); // Voiding remains analyst only
 
 // Vehicle Analytics
 router.get('/vehicles/:vehicleId/operational-cost', viewRoles, financeController.getVehicleOperationalCost);
