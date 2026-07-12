@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, MoreVertical, Shield, FileText, Trash2 } from 'lucide-react';
+import { Plus, Search, MoreVertical, Shield, FileText, Trash2, Edit, Activity, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { driverAPI } from '../../../api_config/Drivers/Driver_config';
 
@@ -10,6 +10,20 @@ export default function DriversList() {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Edit Driver State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingDriver, setEditingDriver] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '', contactNumber: '', licenseNumber: '', licenseCategory: '', licenseExpiry: ''
+  });
+
+  // Safety Score State
+  const [showSafetyModal, setShowSafetyModal] = useState(false);
+  const [safetyDriver, setSafetyDriver] = useState(null);
+  const [safetyScore, setSafetyScore] = useState('');
+  const [safetyReason, setSafetyReason] = useState('');
+  const [submitError, setSubmitError] = useState(null);
 
   useEffect(() => {
     fetchDrivers();
@@ -36,6 +50,47 @@ export default function DriversList() {
       fetchDrivers(); // Refresh list after deletion
     } catch (err) {
       alert(err.message || 'Failed to delete driver');
+    }
+  };
+
+  const openEditModal = (driver) => {
+    setEditingDriver(driver);
+    setEditFormData({
+      name: driver.name || '',
+      contactNumber: driver.contact_number || '',
+      licenseNumber: driver.license_number || '',
+      licenseCategory: driver.license_category || '',
+      licenseExpiry: driver.license_expiry ? driver.license_expiry.split('T')[0] : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async () => {
+    try {
+      setSubmitError(null);
+      await driverAPI.updateDriver(editingDriver.id, editFormData);
+      setShowEditModal(false);
+      fetchDrivers();
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to update driver');
+    }
+  };
+
+  const openSafetyModal = (driver) => {
+    setSafetyDriver(driver);
+    setSafetyScore(driver.safety_score || '');
+    setSafetyReason('');
+    setShowSafetyModal(true);
+  };
+
+  const handleSafetySubmit = async () => {
+    try {
+      setSubmitError(null);
+      await driverAPI.updateSafetyScore(safetyDriver.id, parseFloat(safetyScore), safetyReason);
+      setShowSafetyModal(false);
+      fetchDrivers();
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to update safety score');
     }
   };
 
@@ -141,6 +196,20 @@ export default function DriversList() {
                         <FileText className="w-5 h-5" />
                       </button>
                       <button 
+                        onClick={() => openEditModal(driver)}
+                        className="p-1.5 text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors ml-1"
+                        title="Edit Driver"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => openSafetyModal(driver)}
+                        className="p-1.5 text-muted hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors ml-1"
+                        title="Update Safety Score"
+                      >
+                        <Activity className="w-5 h-5" />
+                      </button>
+                      <button 
                         onClick={() => handleDelete(driver.id)}
                         className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors ml-1"
                         title="Delete Driver"
@@ -155,6 +224,86 @@ export default function DriversList() {
           </table>
         </div>
       </div>
+
+      {/* Edit Driver Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center">
+              <h2 className="text-xl font-bold">Edit Driver</h2>
+              <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-white/5 rounded-lg">
+                <X className="w-5 h-5 text-muted" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {submitError && <div className="p-3 bg-red-500/10 text-red-400 rounded-lg text-sm">{submitError}</div>}
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">Full Name</label>
+                <input type="text" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} className="w-full px-3 py-2 border border-border rounded-lg bg-background" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">Contact Number</label>
+                <input type="text" value={editFormData.contactNumber} onChange={e => setEditFormData({...editFormData, contactNumber: e.target.value})} className="w-full px-3 py-2 border border-border rounded-lg bg-background" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">License Number</label>
+                <input type="text" value={editFormData.licenseNumber} onChange={e => setEditFormData({...editFormData, licenseNumber: e.target.value})} className="w-full px-3 py-2 border border-border rounded-lg bg-background" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">License Category</label>
+                <select 
+                  value={editFormData.licenseCategory} 
+                  onChange={e => setEditFormData({...editFormData, licenseCategory: e.target.value})} 
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                >
+                  <option value="">Select Category</option>
+                  <option value="HMV">Heavy Motor Vehicle (HMV)</option>
+                  <option value="LMV">Light Motor Vehicle (LMV)</option>
+                  <option value="COMMERCIAL">Commercial (CDL)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">License Expiry</label>
+                <input type="date" value={editFormData.licenseExpiry} onChange={e => setEditFormData({...editFormData, licenseExpiry: e.target.value})} className="w-full px-3 py-2 border border-border rounded-lg bg-background" />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 border border-border rounded-lg text-sm">Cancel</button>
+              <button onClick={handleEditSubmit} className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Safety Score Modal */}
+      {showSafetyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center">
+              <h2 className="text-xl font-bold">Update Safety Score</h2>
+              <button onClick={() => setShowSafetyModal(false)} className="p-2 hover:bg-white/5 rounded-lg">
+                <X className="w-5 h-5 text-muted" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {submitError && <div className="p-3 bg-red-500/10 text-red-400 rounded-lg text-sm">{submitError}</div>}
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">New Score (0-100)</label>
+                <input type="number" min="0" max="100" value={safetyScore} onChange={e => setSafetyScore(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg bg-background" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">Reason for Update</label>
+                <textarea value={safetyReason} onChange={e => setSafetyReason(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg bg-background" rows="3" placeholder="e.g., Completed defensive driving course" />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
+              <button onClick={() => setShowSafetyModal(false)} className="px-4 py-2 border border-border rounded-lg text-sm">Cancel</button>
+              <button onClick={handleSafetySubmit} className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">Update Score</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </motion.div>
   );
 }

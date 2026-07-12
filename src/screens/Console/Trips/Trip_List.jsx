@@ -24,6 +24,8 @@ const TripList = () => {
   const [eligibleVehicles, setEligibleVehicles] = useState([]);
   const [eligibleDrivers, setEligibleDrivers] = useState([]);
   const [loadingResources, setLoadingResources] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTripId, setEditTripId] = useState(null);
   const [submitError, setSubmitError] = useState(null);
 
   const fetchTrips = useCallback(async () => {
@@ -85,16 +87,29 @@ const TripList = () => {
     setLoadingResources(true);
     setSubmitError(null);
     try {
-      await tripAPI.createTrip({
-        ...formData,
-        cargoWeight: parseFloat(formData.cargoWeight),
-        plannedDistance: parseFloat(formData.plannedDistance),
-        revenue: parseFloat(formData.revenue),
-        vehicleId: parseInt(formData.vehicleId, 10),
-        driverId: parseInt(formData.driverId, 10)
-      });
+      if (isEditing && editTripId) {
+        await tripAPI.updateTrip(editTripId, {
+          ...formData,
+          cargoWeight: parseFloat(formData.cargoWeight),
+          plannedDistance: parseFloat(formData.plannedDistance),
+          revenue: parseFloat(formData.revenue),
+          vehicleId: parseInt(formData.vehicleId, 10),
+          driverId: parseInt(formData.driverId, 10)
+        });
+      } else {
+        await tripAPI.createTrip({
+          ...formData,
+          cargoWeight: parseFloat(formData.cargoWeight),
+          plannedDistance: parseFloat(formData.plannedDistance),
+          revenue: parseFloat(formData.revenue),
+          vehicleId: parseInt(formData.vehicleId, 10),
+          driverId: parseInt(formData.driverId, 10)
+        });
+      }
       setShowCreateModal(false);
       setCreateStep(1);
+      setIsEditing(false);
+      setEditTripId(null);
       setFormData({ source: '', destination: '', cargoWeight: '', plannedDistance: '', revenue: '', vehicleId: '', driverId: '' });
       fetchTrips();
     } catch (err) {
@@ -114,6 +129,16 @@ const TripList = () => {
     }
   };
 
+  const handleExport = async (format) => {
+    try {
+      await tripAPI.exportData(filterStatus ? { status: filterStatus } : {}, format);
+    } catch (err) {
+      alert(err.message || `Failed to export ${format.toUpperCase()}`);
+    }
+  };
+
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -132,13 +157,39 @@ const TripList = () => {
           <p className="text-muted">Draft, dispatch, and track fleet trips globally.</p>
         </div>
         
-        <button 
-          onClick={() => { setShowCreateModal(true); setCreateStep(1); setSubmitError(null); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl shadow-lg shadow-primary-500/20 transition-all"
-        >
-          <Plus className="w-5 h-5" />
-          Create New Trip
-        </button>
+        <div className="flex gap-3">
+          <div className="relative">
+            <button 
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border hover:bg-surface-hover text-foreground font-medium rounded-xl transition-all shadow-sm"
+            >
+              Export
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 mt-2 w-36 bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-20">
+                <button
+                  onClick={() => { setShowExportMenu(false); handleExport('csv'); }}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-hover transition-colors text-foreground font-medium border-b border-border"
+                >
+                  Export as CSV
+                </button>
+                <button
+                  onClick={() => { setShowExportMenu(false); handleExport('pdf'); }}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-hover transition-colors text-foreground font-medium"
+                >
+                  Export as PDF
+                </button>
+              </div>
+            )}
+          </div>
+          <button 
+            onClick={() => { setShowCreateModal(true); setCreateStep(1); setSubmitError(null); setIsEditing(false); setEditTripId(null); setFormData({ source: '', destination: '', cargoWeight: '', plannedDistance: '', revenue: '', vehicleId: '', driverId: '' }); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl shadow-lg shadow-primary-500/20 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            Create Trip
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -218,7 +269,7 @@ const TripList = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium">{trip.driver_name || `Driver #${trip.driver_id}`}</div>
-                        <div className="text-sm text-muted">{trip.vehicle_registration || `Vehicle #${trip.vehicle_id}`}</div>
+                        <div className="text-sm text-muted">{trip.vehicle_name || trip.vehicle_registration || `Vehicle #${trip.vehicle_id}`}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm">{trip.planned_distance} km</div>
@@ -235,13 +286,38 @@ const TripList = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <Link 
-                          to={`/console/trips/${trip.id}`}
-                          className="p-1.5 text-muted hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors inline-block"
-                          title="View Details"
-                        >
-                          <FileText className="w-5 h-5" />
-                        </Link>
+                        <div className="flex items-center gap-2 justify-end">
+                          {trip.status === 'DRAFT' && (
+                            <button
+                              onClick={() => {
+                                setFormData({
+                                  source: trip.source,
+                                  destination: trip.destination,
+                                  cargoWeight: trip.cargo_weight,
+                                  plannedDistance: trip.planned_distance,
+                                  revenue: trip.revenue,
+                                  vehicleId: trip.vehicle_id,
+                                  driverId: trip.driver_id
+                                });
+                                setIsEditing(true);
+                                setEditTripId(trip.id);
+                                setCreateStep(1);
+                                setSubmitError(null);
+                                setShowCreateModal(true);
+                              }}
+                              className="text-xs font-medium text-blue-500 hover:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <Link 
+                            to={`/console/trips/${trip.id}`}
+                            className="p-1.5 text-muted hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors inline-block"
+                            title="View Details"
+                          >
+                            <FileText className="w-5 h-5" />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -257,7 +333,7 @@ const TripList = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-surface border border-border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-background/50">
-              <h2 className="text-xl font-bold tracking-tight">Draft New Trip</h2>
+              <h2 className="text-xl font-bold tracking-tight">{isEditing ? 'Edit Draft Trip' : 'Draft New Trip'}</h2>
               <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-muted hover:text-foreground" />
               </button>
@@ -378,7 +454,7 @@ const TripList = () => {
                 className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-black rounded-lg text-sm font-semibold transition-all flex items-center disabled:opacity-50"
                 disabled={loadingResources}
               >
-                {loadingResources ? 'Loading...' : (createStep === 1 ? 'Next Step' : 'Draft Trip')}
+                {loadingResources ? 'Loading...' : (createStep === 1 ? 'Next Step' : (isEditing ? 'Update Trip' : 'Draft Trip'))}
               </button>
             </div>
           </div>

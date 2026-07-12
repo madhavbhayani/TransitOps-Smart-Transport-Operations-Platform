@@ -57,24 +57,24 @@ export const financeAPI = {
   },
   
   // Export
-  exportCSV: async (type) => {
+  exportData: async (type, format = 'csv') => {
     const token = localStorage.getItem('transitops_token');
-    const response = await fetch(`http://localhost:6001/api/transitops/finance/export/csv?type=${type}`, {
+    const response = await fetch(`http://localhost:6001/api/transitops/finance/export?type=${type}&format=${format}`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to export CSV');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to export ${format.toUpperCase()}`);
     }
     
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `finance_${type}_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `finance_${type}_export_${new Date().toISOString().split('T')[0]}.${format}`;
     document.body.appendChild(a);
     a.click();
     a.remove();

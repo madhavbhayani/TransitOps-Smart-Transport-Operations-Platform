@@ -10,12 +10,14 @@ export default function RegisterMaintenance() {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [modalAction, setModalAction] = useState(null); // 'start', 'complete', 'cancel'
   const [selectedLogId, setSelectedLogId] = useState(null);
-  
+
   // Form State
   const [formData, setFormData] = useState({
     vehicleId: '',
@@ -29,13 +31,17 @@ export default function RegisterMaintenance() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [searchTerm, filterStatus]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      const filters = {};
+      if (searchTerm) filters.search = searchTerm;
+      if (filterStatus) filters.status = filterStatus;
+
       const [maintRes, vehiclesRes] = await Promise.all([
-        fleetAPI.getAllMaintenance(),
+        fleetAPI.getAllMaintenance(filters),
         fleetAPI.getVehicles({ status: 'AVAILABLE' }) // To allow selection for new maintenance
       ]);
       setMaintenanceLogs(maintRes.maintenance || []);
@@ -96,7 +102,7 @@ export default function RegisterMaintenance() {
           reason: formData.description
         });
       }
-      
+
       closeModal();
       // Refetch everything
       fetchData();
@@ -107,6 +113,16 @@ export default function RegisterMaintenance() {
     }
   };
 
+  const handleExport = async (format) => {
+    try {
+      await fleetAPI.exportMaintenanceData({}, format);
+    } catch (err) {
+      alert(err.message || `Failed to export ${format.toUpperCase()}`);
+    }
+  };
+
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full">
       <div className="flex justify-between items-center mb-8">
@@ -114,13 +130,39 @@ export default function RegisterMaintenance() {
           <h1 className="text-3xl font-bold mb-2">Fleet Maintenance</h1>
           <p className="text-muted">Manage service logs and schedule repairs for vehicles.</p>
         </div>
-        <button 
-          onClick={() => openModal('start')}
-          className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-primary-500/20"
-        >
-          <Plus className="w-5 h-5" />
-          Schedule Maintenance
-        </button>
+        <div className="flex gap-3">
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border hover:bg-surface-hover text-foreground font-medium rounded-xl transition-all shadow-sm"
+            >
+              Export
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 mt-2 w-36 bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-20">
+                <button
+                  onClick={() => { setShowExportMenu(false); handleExport('csv'); }}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-hover transition-colors text-foreground font-medium border-b border-border"
+                >
+                  Export as CSV
+                </button>
+                <button
+                  onClick={() => { setShowExportMenu(false); handleExport('pdf'); }}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-hover transition-colors text-foreground font-medium"
+                >
+                  Export as PDF
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => openModal('start')}
+            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-primary-500/20"
+          >
+            <Plus className="w-5 h-5" />
+            Schedule
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -131,9 +173,31 @@ export default function RegisterMaintenance() {
       )}
 
       <div className="bg-surface border border-border rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-border bg-surface-hover/30 flex items-center gap-2">
-          <Wrench className="w-5 h-5 text-yellow-600" />
-          <h3 className="font-bold">Maintenance Logs</h3>
+        {/* Toolbar */}
+        <div className="p-4 border-b border-border flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wrench className="w-5 h-5 text-yellow-600" />
+            <h3 className="font-bold">Maintenance Logs</h3>
+          </div>
+          <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+            <input
+              type="text"
+              placeholder="Search vehicle or type..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 border border-border rounded-lg bg-background text-sm min-w-[200px]"
+            />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-2 border border-border rounded-lg bg-background text-sm"
+            >
+              <option value="">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -171,26 +235,25 @@ export default function RegisterMaintenance() {
                       <div className="text-xs text-muted">Started: {new Date(log.start_date).toLocaleDateString()}</div>
                       {log.end_date && <div className="text-xs text-muted">Ended: {new Date(log.end_date).toLocaleDateString()}</div>}
                     </td>
-                    <td className="p-4 font-medium">${Number(log.cost).toLocaleString()}</td>
+                    <td className="p-4 font-medium">₹{Number(log.cost).toLocaleString()}</td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                        log.status === 'ACTIVE' ? 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/50' :
-                        log.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' :
-                        'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${log.status === 'ACTIVE' ? 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/50' :
+                          log.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' :
+                            'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50'
+                        }`}>
                         {log.status}
                       </span>
                     </td>
                     <td className="p-4 text-right space-x-2">
                       {log.status === 'ACTIVE' && (
                         <>
-                          <button 
+                          <button
                             onClick={() => openModal('complete', log.id, log.vehicle_id)}
                             className="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded"
                           >
                             <CheckCircle className="w-3 h-3" /> Complete
                           </button>
-                          <button 
+                          <button
                             onClick={() => openModal('cancel', log.id, log.vehicle_id)}
                             className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"
                           >
@@ -214,13 +277,13 @@ export default function RegisterMaintenance() {
             <h2 className="text-2xl font-bold mb-4">
               {modalAction === 'start' ? 'Schedule Maintenance' : modalAction === 'complete' ? 'Complete Maintenance' : 'Cancel Maintenance'}
             </h2>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {modalAction === 'start' && (
                 <>
                   <div>
                     <label className="block text-sm font-medium mb-1.5">Select Vehicle</label>
-                    <select 
+                    <select
                       name="vehicleId" value={formData.vehicleId} onChange={handleInputChange} required
                       className="w-full px-4 py-2 border border-border rounded-xl bg-background"
                     >
@@ -234,14 +297,14 @@ export default function RegisterMaintenance() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5">Maintenance Type</label>
-                      <input 
+                      <input
                         type="text" name="maintenanceType" value={formData.maintenanceType} onChange={handleInputChange} required placeholder="e.g. ROUTINE"
                         className="w-full px-4 py-2 border border-border rounded-xl bg-background"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1.5">Start Date</label>
-                      <input 
+                      <input
                         type="date" name="startDate" value={formData.startDate} onChange={handleInputChange} required
                         className="w-full px-4 py-2 border border-border rounded-xl bg-background"
                       />
@@ -254,14 +317,14 @@ export default function RegisterMaintenance() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1.5">Final Cost (₹)</label>
-                    <input 
+                    <input
                       type="number" name="cost" value={formData.cost} onChange={handleInputChange} required min="0" step="0.01"
                       className="w-full px-4 py-2 border border-border rounded-xl bg-background"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1.5">Completion Date</label>
-                    <input 
+                    <input
                       type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} required
                       className="w-full px-4 py-2 border border-border rounded-xl bg-background"
                     />
@@ -271,7 +334,7 @@ export default function RegisterMaintenance() {
 
               <div>
                 <label className="block text-sm font-medium mb-1.5">Description / Notes</label>
-                <textarea 
+                <textarea
                   name="description" value={formData.description} onChange={handleInputChange} rows={3} required={modalAction === 'cancel'}
                   className="w-full px-4 py-2 border border-border rounded-xl bg-background resize-none"
                   placeholder={modalAction === 'cancel' ? "Reason for cancellation" : "Maintenance details"}
@@ -280,11 +343,10 @@ export default function RegisterMaintenance() {
 
               <div className="pt-4 flex justify-end gap-3 border-t border-border">
                 <button type="button" onClick={closeModal} className="px-4 py-2 font-medium text-muted hover:text-foreground">Cancel</button>
-                <button 
+                <button
                   type="submit" disabled={submitting}
-                  className={`px-4 py-2 rounded-xl font-medium text-white transition-all ${
-                    modalAction === 'cancel' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary-600 hover:bg-primary-700'
-                  }`}
+                  className={`px-4 py-2 rounded-xl font-medium text-white transition-all ${modalAction === 'cancel' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary-600 hover:bg-primary-700'
+                    }`}
                 >
                   {submitting ? 'Processing...' : 'Confirm'}
                 </button>
