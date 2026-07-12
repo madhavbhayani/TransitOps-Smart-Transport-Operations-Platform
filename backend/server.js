@@ -28,8 +28,7 @@ app.use(`${API_PREFIX}/vehicles`, vehicleRoutes);
 app.use(`${API_PREFIX}/drivers`, driverRoutes);
 app.use(`${API_PREFIX}/maintenance`, maintenanceRoutes);
 app.use(`${API_PREFIX}/trips`, tripRoutes);
-
-
+app.use(`${API_PREFIX}/finance`, require('./routes/financeRoutes'));
 
 
 
