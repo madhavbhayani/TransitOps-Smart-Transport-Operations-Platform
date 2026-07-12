@@ -149,8 +149,8 @@ async function filterTrips(filters) {
 async function getTripDetails(id) {
     const tripQuery = `
         SELECT t.*, 
-               v.registration_number, v.name AS vehicle_name, v.max_load_capacity,
-               d.name AS driver_name, d.license_number, d.license_expiry
+               v.registration_number, v.name AS vehicle_name, v.max_load_capacity, v.type AS vehicle_type, v.odometer,
+               d.name AS driver_name, d.license_number, d.license_expiry, d.safety_score
         FROM trip_mgmt.trips t
         JOIN vehicles.vehicles v ON t.vehicle_id = v.id
         JOIN drivers.drivers d ON t.driver_id = d.id
@@ -159,18 +159,42 @@ async function getTripDetails(id) {
     const tripRes = await pool.query(tripQuery, [id]);
     if (!tripRes.rows.length) return null;
     
+    const row = tripRes.rows[0];
+    
     const historyQuery = `
         SELECT h.*, u.name AS changed_by_name
         FROM trip_mgmt.trip_status_history h
-        JOIN users.users u ON h.changed_by = u.id
+        LEFT JOIN users.users u ON h.changed_by = u.id
         WHERE h.trip_id = $1
         ORDER BY h.created_at DESC
     `;
     const historyRes = await pool.query(historyQuery, [id]);
     
     return {
-        trip: tripRes.rows[0],
-        statusHistory: historyRes.rows
+        trip: {
+            ...row,
+            source: row.source,
+            destination: row.destination,
+            planned_distance: row.planned_distance,
+            revenue: row.revenue,
+            status: row.status,
+            fuel_consumed: row.fuel_consumed,
+            actual_distance: row.actual_distance
+        },
+        vehicle: {
+            id: row.vehicle_id,
+            registration_number: row.registration_number,
+            name: row.vehicle_name,
+            type: row.vehicle_type,
+            odometer: row.odometer
+        },
+        driver: {
+            id: row.driver_id,
+            name: row.driver_name,
+            license_number: row.license_number,
+            safety_score: row.safety_score
+        },
+        history: historyRes.rows
     };
 }
 
