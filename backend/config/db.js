@@ -9,14 +9,6 @@ const pool = new Pool({
   password: process.env.DATABASE_PASSWORD,
 });
 
-pool.connect()
-  .then(() => {
-    console.log("Database Connection Sucessful");
-  })
-  .catch((err) => {
-    console.error("Database connection error", err.stack);
-  });
-
 module.exports = {
   pool
 };
