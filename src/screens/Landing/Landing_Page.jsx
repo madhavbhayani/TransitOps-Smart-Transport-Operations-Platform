@@ -98,9 +98,9 @@ export default function LandingPage() {
               >
                 {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
-              <button className="hidden sm:block px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors">
+              <a href="/login" className="hidden sm:block px-4 py-2 text-sm font-medium text-muted hover:text-foreground transition-colors">
                 Sign In
-              </button>
+              </a>
               <button className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
                 Get Started
               </button>
@@ -118,11 +118,6 @@ export default function LandingPage() {
             variants={containerVariants}
             className="max-w-3xl mx-auto"
           >
-            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-sm font-medium mb-8 border border-primary-200 dark:border-primary-800/50">
-              <Activity className="w-4 h-4" />
-              <span>Smart Transport Operations Platform</span>
-            </motion.div>
-            
             <motion.h1 variants={itemVariants} className="text-5xl lg:text-7xl font-extrabold tracking-tight mb-8 leading-tight">
               Manage Your Fleet with <span className="text-primary-600 dark:text-primary-500">Absolute Precision</span>
             </motion.h1>
