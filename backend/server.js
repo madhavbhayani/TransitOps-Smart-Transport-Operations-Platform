@@ -5,6 +5,7 @@ const { runMigrations } = require('./migrator');
 const authRoutes = require('./routes/authRoutes');
 const vehicleRoutes = require('./routes/vehicleRoutes');
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
+const tripRoutes = require('./routes/tripRoutes');
 
 dotenv.config();
 
@@ -21,6 +22,8 @@ app.get('/', (req, res) => {
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/vehicles`, vehicleRoutes);
 app.use(`${API_PREFIX}/maintenance`, maintenanceRoutes);
+app.use(`${API_PREFIX}/trips`, tripRoutes);
+
 
 
 
