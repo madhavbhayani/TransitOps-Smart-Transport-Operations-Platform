@@ -7,13 +7,11 @@ const router = express.Router();
 // Apply auth middleware to all vehicle routes
 router.use(authenticate);
 
-// Fleet Utilization Summary (MUST be before /:id to prevent parameter conflict)
+// Global & Summary Routes (MUST be before /:id)
 router.get('/utilization/summary', requireRole(['FLEET_MANAGER']), vehicleController.getFleetUtilizationSummary);
-
-// Lists & Global
+router.get('/maintenance/all', requireRole(['FLEET_MANAGER', 'DISPATCHER']), vehicleController.getAllMaintenance);
 router.get('/', requireRole(['FLEET_MANAGER', 'DISPATCHER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST']), vehicleController.getVehicles);
 router.post('/', requireRole(['FLEET_MANAGER']), vehicleController.registerVehicle);
-
 
 // Individual Vehicle Routes
 router.get('/:id', requireRole(['FLEET_MANAGER', 'DISPATCHER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST']), vehicleController.getVehicleById);
