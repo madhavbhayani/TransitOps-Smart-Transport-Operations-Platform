@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const driverController = require('../controllers/driverController');
-const { authenticate, requireRole } = require('../middleware/authMiddleware');
+const { authenticate, requirePermission } = require('../middleware/authMiddleware');
 
 // Setup permissions based on RBAC instructions
-// SAFETY_OFFICER can do mutations
-const requireSafetyOfficer = requireRole(['SAFETY_OFFICER', 'ADMIN']); 
-// Both DISPATCHER and SAFETY_OFFICER can read
-const requireReader = requireRole(['SAFETY_OFFICER', 'DISPATCHER', 'ADMIN', 'FLEET_MANAGER']); 
+// FULL_CONTROL can do mutations
+const requireSafetyOfficer = requirePermission('drivers', 'FULL_CONTROL'); 
+// VIEW can read
+const requireReader = requirePermission('drivers', 'VIEW'); 
 
 // Apply authentication to all routes
 router.use(authenticate);
