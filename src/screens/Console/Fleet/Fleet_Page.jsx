@@ -10,7 +10,7 @@ export default function FleetPage() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,8 +36,8 @@ export default function FleetPage() {
     }
   };
 
-  const filteredVehicles = vehicles.filter(v => 
-    v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredVehicles = vehicles.filter(v =>
+    v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     v.registration_number.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -55,7 +55,7 @@ export default function FleetPage() {
           <h1 className="text-3xl font-bold mb-2">Fleet Management</h1>
           <p className="text-muted">Monitor and manage all vehicles in your fleet.</p>
         </div>
-        <button 
+        <button
           onClick={() => navigate('/console/fleet/new')}
           className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-primary-500/20"
         >
@@ -71,28 +71,15 @@ export default function FleetPage() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {statsCards.map((stat, index) => (
-          <div key={index} className="bg-surface border border-border rounded-2xl p-6 flex items-center gap-4">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
-              <stat.icon className="w-7 h-7" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted">{stat.label}</p>
-              <h3 className="text-2xl font-bold">{loading ? '-' : stat.value}</h3>
-            </div>
-          </div>
-        ))}
-      </div>
+
 
       <div className="bg-surface border border-border rounded-2xl shadow-sm overflow-hidden">
         {/* Toolbar */}
         <div className="p-4 border-b border-border bg-surface-hover/30 flex flex-col sm:flex-row gap-4 justify-between items-center">
           <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search by registration or name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -151,17 +138,16 @@ export default function FleetPage() {
                       <div className="font-medium">{Number(v.odometer).toLocaleString()} km</div>
                     </td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                        v.status === 'AVAILABLE' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' :
-                        v.status === 'IN_SHOP' ? 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/50' :
-                        v.status === 'ON_TRIP' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800/50' :
-                        'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${v.status === 'AVAILABLE' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' :
+                          v.status === 'IN_SHOP' ? 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/50' :
+                            v.status === 'ON_TRIP' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800/50' :
+                              'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
+                        }`}>
                         {v.status}
                       </span>
                     </td>
                     <td className="p-4 text-right">
-                      <button 
+                      <button
                         onClick={() => navigate(`/console/fleet/${v.id}`)}
                         className="text-primary-600 hover:text-primary-700 font-medium text-sm"
                       >

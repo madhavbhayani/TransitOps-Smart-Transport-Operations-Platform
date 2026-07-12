@@ -4,7 +4,7 @@ const financeController = require('../controllers/financeController');
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate);   
 
 // Dynamic permissions
 const analystOnly = requirePermission('expenses', 'FULL_CONTROL'); // Using FULL_CONTROL for things only analysts could do before
