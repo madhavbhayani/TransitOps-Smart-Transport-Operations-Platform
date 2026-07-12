@@ -11,6 +11,10 @@ import VehiclesDetail from '../screens/Console/Fleet/VehiclesDetail';
 import RegisterMaintenance from '../screens/Console/Maintenance/RegisterMaintenance';
 import TripList from '../screens/Console/Trips/Trip_List';
 import TripDetail from '../screens/Console/Trips/Trip_Detail';
+import FuelExpenseList from '../screens/Console/Fuel and Expenses/FuelExpenseList';
+import FuelExpenseDetail from '../screens/Console/Fuel and Expenses/FuelExpenseDetail';
+import AnalyticsScreen from '../screens/Console/Analytics/analytics_screen';
+import Settings from '../screens/Settings/Settings';
 
 export const router = createBrowserRouter([
   {
@@ -60,6 +64,26 @@ export const router = createBrowserRouter([
       {
         path: 'trips/:id',
         element: <TripDetail />
+      },
+      {
+        path: 'expenses',
+        element: <FuelExpenseList />
+      },
+      {
+        path: 'expenses/fuel/:id',
+        element: <FuelExpenseDetail />
+      },
+      {
+        path: 'expenses/other/:id',
+        element: <FuelExpenseDetail />
+      },
+      {
+        path: 'analytics',
+        element: <AnalyticsScreen />
+      },
+      {
+        path: 'settings',
+        element: <Settings />
       }
     ]
   }
