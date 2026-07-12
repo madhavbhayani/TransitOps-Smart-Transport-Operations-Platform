@@ -74,7 +74,9 @@ export default function Settings() {
   };
 
   const modules = ['dashboard', 'fleet', 'drivers', 'trips', 'maintenance', 'expenses', 'analytics', 'settings'];
-  const roles = Object.keys(permissions).filter(r => r !== 'ADMIN'); // Exclude admin from matrix to keep it clean
+  const roles = isAdmin 
+    ? Object.keys(permissions).filter(r => r !== 'ADMIN')
+    : Object.keys(permissions).filter(r => r === user.role);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full">

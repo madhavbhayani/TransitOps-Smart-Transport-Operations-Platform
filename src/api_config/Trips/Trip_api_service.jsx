@@ -7,6 +7,13 @@ export const tripAPI = {
       body: JSON.stringify(data)
     });
   },
+
+  updateTrip: async (id, data) => {
+    return await apiClient(`/trips/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  },
   
   selectVehicles: async (data) => {
     return await apiClient('/trips/select-vehicles', {
@@ -69,5 +76,30 @@ export const tripAPI = {
       method: 'POST',
       body: JSON.stringify({})
     });
+  },
+
+  exportData: async (filters = {}, format = 'csv') => {
+    const token = localStorage.getItem('transitops_token');
+    const query = new URLSearchParams({ format, ...filters }).toString();
+    const response = await fetch(`http://localhost:6001/api/transitops/trips/export?${query}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to export trips ${format.toUpperCase()}`);
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trips_export_${new Date().toISOString().split('T')[0]}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   }
 };

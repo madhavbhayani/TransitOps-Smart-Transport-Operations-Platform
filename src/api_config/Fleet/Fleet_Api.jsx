@@ -72,10 +72,7 @@ export const fleetAPI = {
   },
   getAllMaintenance: async (filters = {}) => {
     const query = new URLSearchParams(filters).toString();
-    // Assuming backend has a route or we can fetch via vehicles. Wait, backend controller has getAllMaintenance but let's check vehicleRoutes.js if it's exposed.
-    // It is not exposed in vehicleRoutes.js, so we might have to fetch vehicles or backend might need a route.
-    // Let me check vehicleRoutes.js again
-    return await apiClient(`/vehicles/maintenance/all${query ? `?${query}` : ''}`); // Actually let's not assume this endpoint exists yet unless we check
+    return await apiClient(`/maintenance${query ? `?${query}` : ''}`);
   },
 
   // Utilization & History
@@ -87,5 +84,30 @@ export const fleetAPI = {
   },
   getVehicleLifecycle: async (id) => {
     return await apiClient(`/vehicles/${id}/lifecycle`);
+  },
+
+  exportMaintenanceData: async (filters = {}, format = 'csv') => {
+    const token = localStorage.getItem('transitops_token');
+    const query = new URLSearchParams({ format, ...filters }).toString();
+    const response = await fetch(`http://localhost:6001/api/transitops/maintenance/export?${query}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to export maintenance ${format.toUpperCase()}`);
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `maintenance_export_${new Date().toISOString().split('T')[0]}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   }
 };

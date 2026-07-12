@@ -39,6 +39,20 @@ export const driverAPI = {
     });
   },
 
+  updateDriver: async (id, driverData) => {
+    return await apiClient(`/drivers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(driverData),
+    });
+  },
+
+  updateSafetyScore: async (id, safetyScore, reason) => {
+    return await apiClient(`/drivers/${id}/safety-score`, {
+      method: 'POST',
+      body: JSON.stringify({ safetyScore, reason }),
+    });
+  },
+
   updateDriverStatus: async (id, currentStatus, newStatus, reason = "Status updated via console") => {
     if (newStatus === 'AVAILABLE') {
       if (currentStatus === 'SUSPENDED') {

@@ -48,10 +48,10 @@ export const analyticsAPI = {
     return await apiClient(`/analytics/trips/${tripId}`);
   },
 
-  exportCSV: async (type, filters = {}) => {
+  exportData: async (type, filters = {}, format = 'csv') => {
     const token = localStorage.getItem('transitops_token');
-    const query = new URLSearchParams({ type, ...filters }).toString();
-    const response = await fetch(`http://localhost:6001/api/transitops/analytics/export/csv?${query}`, {
+    const query = new URLSearchParams({ type, format, ...filters }).toString();
+    const response = await fetch(`http://localhost:6001/api/transitops/analytics/export?${query}`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -59,14 +59,14 @@ export const analyticsAPI = {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to export analytics CSV');
+      throw new Error(errorData.message || `Failed to export analytics ${format.toUpperCase()}`);
     }
     
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `analytics_${type}_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `analytics_${type}_export_${new Date().toISOString().split('T')[0]}.${format}`;
     document.body.appendChild(a);
     a.click();
     a.remove();

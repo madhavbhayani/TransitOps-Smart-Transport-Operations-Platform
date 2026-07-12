@@ -8,11 +8,13 @@ import { tripAPI } from '../../../api_config/Trips/Trip_api_service';
 
 export default function FuelExpenseList() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('fuel'); // 'fuel' or 'expenses'
+  const [activeTab, setActiveTab] = useState('fuel'); // 'fuel', 'expenses', or 'audit'
   const [searchTerm, setSearchTerm] = useState('');
   
   const [fuelLogs, setFuelLogs] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [voidedFuelLogs, setVoidedFuelLogs] = useState([]);
+  const [voidedExpenses, setVoidedExpenses] = useState([]);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -49,14 +51,25 @@ export default function FuelExpenseList() {
       if (searchTerm) {
         const searchResults = await financeAPI.searchFinancials(searchTerm);
         if (activeTab === 'fuel') setFuelLogs(searchResults.fuelLogs || []);
-        else setExpenses(searchResults.expenses || []);
+        else if (activeTab === 'expenses') setExpenses(searchResults.expenses || []);
+        else {
+          setVoidedFuelLogs((searchResults.fuelLogs || []).filter(l => l.is_voided));
+          setVoidedExpenses((searchResults.expenses || []).filter(e => e.status === 'VOIDED'));
+        }
       } else {
         if (activeTab === 'fuel') {
           const res = await financeAPI.getFuelLogs();
           setFuelLogs(res.fuelLogs || []);
-        } else {
+        } else if (activeTab === 'expenses') {
           const res = await financeAPI.getExpenses();
           setExpenses(res.expenses || []);
+        } else if (activeTab === 'audit') {
+          const [fuelRes, expRes] = await Promise.all([
+            financeAPI.getFuelLogs({ onlyVoided: true }),
+            financeAPI.getExpenses({ status: 'VOIDED' })
+          ]);
+          setVoidedFuelLogs(fuelRes.fuelLogs || []);
+          setVoidedExpenses(expRes.expenses || []);
         }
       }
       setError(null);
@@ -140,13 +153,15 @@ export default function FuelExpenseList() {
     }
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     try {
-      await financeAPI.exportCSV(activeTab === 'fuel' ? 'fuel' : 'expenses');
+      await financeAPI.exportData(activeTab === 'fuel' ? 'fuel' : 'expenses', format);
     } catch (err) {
-      alert(err.message || 'Failed to export CSV');
+      alert(err.message || `Failed to export ${format.toUpperCase()}`);
     }
   };
+
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   return (
     <motion.div 
@@ -161,13 +176,38 @@ export default function FuelExpenseList() {
         </div>
         
         <div className="flex gap-3">
-          <button 
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border hover:bg-surface-hover text-foreground font-medium rounded-xl transition-all"
-          >
-            <Download className="w-5 h-5" />
-            Export
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border hover:bg-surface-hover text-foreground font-medium rounded-xl transition-all"
+            >
+              <Download className="w-5 h-5" />
+              Export
+            </button>
+            <AnimatePresence>
+              {showExportMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  className="absolute right-0 mt-2 w-36 bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-20"
+                >
+                  <button
+                    onClick={() => { setShowExportMenu(false); handleExport('csv'); }}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-hover transition-colors text-foreground font-medium border-b border-border"
+                  >
+                    Export as CSV
+                  </button>
+                  <button
+                    onClick={() => { setShowExportMenu(false); handleExport('pdf'); }}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-hover transition-colors text-foreground font-medium"
+                  >
+                    Export as PDF
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           {activeTab === 'fuel' ? (
             <button 
               onClick={openFuelModal}
@@ -221,6 +261,17 @@ export default function FuelExpenseList() {
               <Receipt className="w-4 h-4" />
               Other Expenses
             </button>
+            <button
+              onClick={() => setActiveTab('audit')}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                activeTab === 'audit' 
+                  ? 'bg-primary-500 text-black shadow-sm' 
+                  : 'text-muted hover:text-foreground'
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Audit Logs
+            </button>
           </div>
 
           <div className="relative w-full max-w-md">
@@ -229,7 +280,7 @@ export default function FuelExpenseList() {
             </div>
             <input
               type="text"
-              placeholder={`Search ${activeTab === 'fuel' ? 'fuel logs' : 'expenses'}...`}
+              placeholder={`Search ${activeTab === 'fuel' ? 'fuel logs' : activeTab === 'expenses' ? 'expenses' : 'audit logs'}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="block w-full pl-10 pr-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
@@ -307,7 +358,7 @@ export default function FuelExpenseList() {
                 )}
               </tbody>
             </table>
-          ) : (
+          ) : activeTab === 'expenses' ? (
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-surface-hover text-muted uppercase tracking-wider text-xs">
                 <tr>
@@ -373,7 +424,93 @@ export default function FuelExpenseList() {
                 )}
               </tbody>
             </table>
-          )}
+          ) : activeTab === 'audit' ? (
+            <div className="flex flex-col">
+              <div className="p-4 bg-surface-hover border-b border-border font-bold">Voided Fuel Logs</div>
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-surface-hover text-muted uppercase tracking-wider text-xs">
+                  <tr>
+                    <th className="px-6 py-4 font-medium">Date & ID</th>
+                    <th className="px-6 py-4 font-medium">Vehicle</th>
+                    <th className="px-6 py-4 font-medium">Details</th>
+                    <th className="px-6 py-4 font-medium">Cost</th>
+                    <th className="px-6 py-4 font-medium">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {voidedFuelLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-8 text-center text-muted">No voided fuel logs found.</td>
+                    </tr>
+                  ) : (
+                    voidedFuelLogs.map((log) => (
+                      <tr key={`f-${log.id}`} className="hover:bg-surface-hover/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{new Date(log.fuel_date).toLocaleDateString()}</div>
+                          <div className="text-xs text-muted">ID: #{log.id}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{log.registration_number}</div>
+                          <div className="text-xs text-muted">{log.vehicle_name}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{log.liters} L</div>
+                        </td>
+                        <td className="px-6 py-4 font-medium text-red-400">
+                          ₹{parseFloat(log.cost).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 text-red-400 max-w-[200px] truncate" title={log.void_reason}>
+                          {log.void_reason || 'N/A'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              <div className="p-4 bg-surface-hover border-y border-border font-bold mt-4">Voided Expenses</div>
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-surface-hover text-muted uppercase tracking-wider text-xs">
+                  <tr>
+                    <th className="px-6 py-4 font-medium">Date & ID</th>
+                    <th className="px-6 py-4 font-medium">Type & Desc</th>
+                    <th className="px-6 py-4 font-medium">Vehicle</th>
+                    <th className="px-6 py-4 font-medium">Amount</th>
+                    <th className="px-6 py-4 font-medium">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {voidedExpenses.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-8 text-center text-muted">No voided expenses found.</td>
+                    </tr>
+                  ) : (
+                    voidedExpenses.map((exp) => (
+                      <tr key={`e-${exp.id}`} className="hover:bg-surface-hover/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{new Date(exp.expense_date).toLocaleDateString()}</div>
+                          <div className="text-xs text-muted">ID: #{exp.id}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{exp.expense_type}</div>
+                          <div className="text-xs text-muted truncate max-w-[150px]">{exp.description || 'No description'}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{exp.registration_number}</div>
+                        </td>
+                        <td className="px-6 py-4 font-medium text-red-400">
+                          ₹{parseFloat(exp.amount).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 text-red-400 max-w-[200px] truncate" title={exp.void_reason}>
+                          {exp.void_reason || 'N/A'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       </div>
 

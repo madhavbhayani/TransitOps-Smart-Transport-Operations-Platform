@@ -90,16 +90,16 @@ export default function AnalyticsScreen() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  const handleExport = async (type) => {
+  const handleExport = async (type, format) => {
     try {
       const filters = {};
       if (startDate) filters.startDate = startDate;
       if (endDate) filters.endDate = endDate;
       if (type === 'monthly-revenue' || type === 'monthly-profitability') filters.year = year;
       
-      await analyticsAPI.exportCSV(type, filters);
+      await analyticsAPI.exportData(type, filters, format);
     } catch (err) {
-      alert(err.message || 'Failed to export CSV');
+      alert(err.message || `Failed to export ${format.toUpperCase()}`);
     }
   };
 
@@ -154,17 +154,33 @@ export default function AnalyticsScreen() {
             </select>
           )}
 
-          <div className="relative group">
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors">
-              <Download className="w-4 h-4" />
-              Export Reports
-            </button>
-            <div className="absolute right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
-              <button onClick={() => handleExport('operational-cost')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Operational Cost</button>
-              <button onClick={() => handleExport('fuel-efficiency')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Fuel Efficiency</button>
-              <button onClick={() => handleExport('vehicle-roi')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Vehicle ROI</button>
-              <button onClick={() => handleExport('top-costliest-vehicles')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Top Costliest</button>
-              <button onClick={() => handleExport('trip-profitability')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Trip Profitability</button>
+          <div className="flex gap-2">
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-surface-hover text-foreground text-sm font-medium rounded-lg transition-colors">
+                <Download className="w-4 h-4" />
+                CSV
+              </button>
+              <div className="absolute right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+                <button onClick={() => handleExport('operational-cost', 'csv')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Operational Cost</button>
+                <button onClick={() => handleExport('fuel-efficiency', 'csv')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Fuel Efficiency</button>
+                <button onClick={() => handleExport('vehicle-roi', 'csv')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Vehicle ROI</button>
+                <button onClick={() => handleExport('top-costliest-vehicles', 'csv')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Top Costliest</button>
+                <button onClick={() => handleExport('trip-profitability', 'csv')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Trip Profitability</button>
+              </div>
+            </div>
+
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <Download className="w-4 h-4" />
+                PDF
+              </button>
+              <div className="absolute right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+                <button onClick={() => handleExport('operational-cost', 'pdf')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Operational Cost</button>
+                <button onClick={() => handleExport('fuel-efficiency', 'pdf')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Fuel Efficiency</button>
+                <button onClick={() => handleExport('vehicle-roi', 'pdf')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Vehicle ROI</button>
+                <button onClick={() => handleExport('top-costliest-vehicles', 'pdf')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Top Costliest</button>
+                <button onClick={() => handleExport('trip-profitability', 'pdf')} className="w-full text-left px-4 py-2 text-sm hover:bg-surface-hover text-foreground">Trip Profitability</button>
+              </div>
             </div>
           </div>
         </div>

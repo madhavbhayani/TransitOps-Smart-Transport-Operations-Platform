@@ -57,7 +57,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
       <div className="absolute top-4 right-4">
-        <button 
+        <button
           onClick={toggleTheme}
           className="p-3 text-muted hover:text-foreground transition-colors rounded-full hover:bg-surface-hover shadow-sm border border-border bg-surface"
           aria-label="Toggle Dark Mode"
@@ -66,7 +66,7 @@ export default function Login() {
         </button>
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full bg-surface border border-border rounded-3xl shadow-2xl overflow-hidden"
@@ -82,10 +82,10 @@ export default function Login() {
               </span>
             </Link>
           </div>
-          
+
           <h2 className="text-2xl font-bold text-center mb-2">Welcome Back</h2>
           <p className="text-muted text-center mb-8 text-sm">Enter your credentials to access the platform</p>
-          
+
           {error && (
             <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-lg text-center">
               {error}
@@ -110,12 +110,9 @@ export default function Login() {
                 />
               </div>
             </div>
-            
+
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium" htmlFor="password">Password</label>
-                <a href="#" className="text-sm font-medium text-primary-600 hover:text-primary-500 transition-colors">Forgot password?</a>
-              </div>
+
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-muted" />
@@ -131,7 +128,7 @@ export default function Login() {
                 />
               </div>
             </div>
-            
+
             <button
               type="submit"
               disabled={loading}
