@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Truck, Mail, Lock, ArrowRight, Sun, Moon } from 'lucide-react';
+import { Truck, Mail, Lock, ArrowRight, Sun, Moon, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+
+import { loginAPI } from '../../api_config/Auth/Auth_Api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isDark, setIsDark] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,14 +36,26 @@ export default function Login() {
     }
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    console.log('Login attempt:', { email, password });
+    setLoading(true);
+    setError('');
+
+    try {
+      const data = await loginAPI(email, password);
+
+      localStorage.setItem('transitops_token', data.token);
+      localStorage.setItem('transitops_user', JSON.stringify(data.user));
+      navigate('/console/dashboard');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
-      {/* Theme Toggle Overlay */}
       <div className="absolute top-4 right-4">
         <button 
           onClick={toggleTheme}
@@ -70,6 +86,12 @@ export default function Login() {
           <h2 className="text-2xl font-bold text-center mb-2">Welcome Back</h2>
           <p className="text-muted text-center mb-8 text-sm">Enter your credentials to access the platform</p>
           
+          {error && (
+            <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-lg text-center">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label className="block text-sm font-medium mb-2" htmlFor="email">Email Address</label>
@@ -112,10 +134,17 @@ export default function Login() {
             
             <button
               type="submit"
-              className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl shadow-lg shadow-primary-500/20 text-base font-semibold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all mt-4"
+              disabled={loading}
+              className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl shadow-lg shadow-primary-500/20 text-base font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-70 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all mt-4"
             >
-              Sign In to Console
-              <ArrowRight className="w-5 h-5" />
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  Sign In to Console
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
             </button>
           </form>
         </div>
